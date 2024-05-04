@@ -6,6 +6,7 @@ import numpy as np
 from handwriting_synthesis import drawing
 from handwriting_synthesis.config import prediction_path, checkpoint_path, style_path
 from handwriting_synthesis.hand._draw import _draw
+from handwriting_synthesis.hand._draw_enhanced import draw
 from handwriting_synthesis.rnn import RNN
 
 
@@ -40,10 +41,10 @@ class Hand(object):
     def write(self, filename, lines, biases=None, styles=None, stroke_colors=None, stroke_widths=None):
         valid_char_set = set(drawing.alphabet)
         for line_num, line in enumerate(lines):
-            if len(line) > 75:
+            if len(line) > drawing.MAX_CHAR_LEN:
                 raise ValueError(
                     (
-                        "Each line must be at most 75 characters. "
+                        f"Each line must be at most {drawing.MAX_CHAR_LEN} characters. "
                         "Line {} contains {}"
                     ).format(line_num, len(line))
                 )
@@ -58,7 +59,7 @@ class Hand(object):
                     )
 
         strokes = self._sample(lines, biases=biases, styles=styles)
-        _draw(strokes, lines, filename, stroke_colors=stroke_colors, stroke_widths=stroke_widths)
+        draw(strokes, lines, filename, stroke_colors=stroke_colors, stroke_widths=stroke_widths)
 
     def _sample(self, lines, biases=None, styles=None):
         num_samples = len(lines)
