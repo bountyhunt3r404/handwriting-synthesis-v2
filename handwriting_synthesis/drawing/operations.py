@@ -16,12 +16,13 @@ alphabet = [
     'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
     'y', 'z'
 ]
+
 alphabet_ord = list(map(ord, alphabet))
 alpha_to_num = defaultdict(int, list(map(reversed, enumerate(alphabet))))
 num_to_alpha = dict(enumerate(alphabet_ord))
 
 MAX_STROKE_LEN = 1200
-MAX_CHAR_LEN = 75
+MAX_CHAR_LEN = 120
 
 
 def align(coords):
