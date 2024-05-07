@@ -5,7 +5,7 @@ import numpy as np
 
 from handwriting_synthesis import drawing
 from handwriting_synthesis.config import prediction_path, checkpoint_path, style_path
-from handwriting_synthesis.hand._draw import _draw
+from handwriting_synthesis.drawing.paper import Paper
 from handwriting_synthesis.hand._draw_enhanced import draw
 from handwriting_synthesis.rnn import RNN
 
@@ -38,7 +38,27 @@ class Hand(object):
         )
         self.nn.restore()
 
-    def write(self, filename, lines, biases=None, styles=None, stroke_colors=None, stroke_widths=None):
+    def write(self, filename: str, paper: Paper, lines: list[str], biases=None, styles=None,
+              stroke_colors=None, stroke_widths=None, scale_factor=1.0):
+        """
+        Writes text to SVG file with customizable styles and biases.
+
+        Parameters:
+            filename (str): The name of the file to write the text to.
+            paper (Paper): A Paper object specifying paper size and offsets.
+            lines (List[str]): List of strings representing each line of text.
+            biases (List[float], optional): List of bias values for each line. Default is None.
+            styles (List[str], optional): List of style names for each line. Default is None.
+            stroke_colors (List[str], optional): List of stroke colors for each line. Default is None.
+            stroke_widths (List[float], optional): List of stroke widths for each line. Default is None.
+            scale_factor (float, optional): Scaling factor. Default is 1.0.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If any of the lines exceed the maximum character length or contain invalid characters.
+        """
         valid_char_set = set(drawing.alphabet)
         for line_num, line in enumerate(lines):
             if len(line) > drawing.MAX_CHAR_LEN:
@@ -59,7 +79,8 @@ class Hand(object):
                     )
 
         strokes = self._sample(lines, biases=biases, styles=styles)
-        draw(strokes, lines, filename, stroke_colors=stroke_colors, stroke_widths=stroke_widths)
+        draw(strokes, lines, filename, paper, scale_factor,
+             stroke_colors=stroke_colors, stroke_widths=stroke_widths)
 
     def _sample(self, lines, biases=None, styles=None):
         num_samples = len(lines)

@@ -2,34 +2,12 @@ import numpy as np
 import svgwrite
 
 from handwriting_synthesis import drawing
+from handwriting_synthesis.drawing.paper import Paper
+from random import randint
 
 
-class PaperSize:
-    sizes = {
-        "A0": (841, 1189),
-        "A1": (594, 841),
-        "A2": (420, 594),
-        "A3": (297, 420),
-        "A4": (210, 297),
-        "A5": (148, 210),
-        "A6": (105, 148),
-        "Letter": (216, 279),
-        "Legal": (216, 356),
-        "Tabloid": (279, 432)
-    }
-
-    @staticmethod
-    def get_size(name):
-        return PaperSize.sizes.get(name)
-
-
-def draw(strokes,
-         lines,
-         filename,
-         offset_horizontal=34,
-         offset_vertical=23,
+def draw(strokes, lines, filename, paper: Paper,
          scale_factor=1.0,
-         paper_size=PaperSize.get_size("A4"),  # Default paper size in millimeters (A4)
          stroke_colors=None,
          stroke_widths=None
          ):
@@ -43,15 +21,10 @@ def draw(strokes,
             Each line represents a separate element to be drawn.
         filename (str): The filename of the SVG file to be saved.
             The SVG file will contain the rendered strokes and lines.
-        offset_horizontal (int, optional): The horizontal offset for the strokes. Defaults to 34.
-            This parameter adjusts the horizontal position of the strokes within the SVG canvas.
-        offset_vertical (int, optional): The vertical offset for the strokes. Defaults to 23.
-            This parameter adjusts the vertical position of the strokes within the SVG canvas.
+        paper (Paper): An instance of the Paper class representing the drawing paper.
         scale_factor (float, optional): The scaling factor for the strokes. Defaults to 1.0.
             This parameter scales the size of the strokes. Values greater than 1.0 increase the size,
             while values less than 1.0 decrease the size.
-        paper_size (tuple, optional): The size of the paper in millimeters.
-            Defaults to the standard A4 paper size.
         stroke_colors (list, optional): List of stroke colors for each line. Defaults to None.
             If provided, each line will be drawn with the corresponding color in the list.
             If not provided, all lines will be drawn in black.
@@ -79,17 +52,18 @@ def draw(strokes,
     stroke_colors = stroke_colors or ['black'] * len(lines)
     stroke_widths = stroke_widths or [2] * len(lines)
 
-    line_height = 8  # Assuming the height of each line segment in the drawing
-    view_width, view_height = paper_size  # Extracting width and height from the paper size tuple
+    line_height = drawing.generator.mm_to_px(paper.line_space)
+    view_width, view_height = paper.get_size()  # Extracting width and height from the paper size tuple
 
     # Create a new SVG drawing
-    dwg = drawing.generator.create_svg_with_ruled_lines(filename, paper_size,
-                                                        offset_horizontal,
-                                                        offset_vertical,
-                                                        8)
+    dwg = drawing.generator.create_svg_with_ruled_lines(filename,
+                                                        size=paper.get_size(),
+                                                        offset_horizontal=paper.offset_horizontal,
+                                                        offset_vertical=paper.offset_vertical,
+                                                        line_gap=paper.line_space)
 
     # Initial position for drawing strokes
-    initial_coord = np.array([0, -(3 * line_height / 4)])
+    initial_coord = np.array([0, -line_height / 4])
 
     for offsets, line, color, width in zip(strokes, lines, stroke_colors, stroke_widths):
 
@@ -105,8 +79,9 @@ def draw(strokes,
 
         strokes[:, 1] *= -1
         strokes[:, :2] -= strokes[:, :2].min() + initial_coord
-        strokes[:, 0] += (view_width - strokes[:, 0].max()) / 2
-        strokes[:, 1] += offset_vertical
+        # strokes[:, 0] += (view_width - strokes[:, 0].max()) / 2
+        strokes[:, 0] += drawing.generator.mm_to_px(paper.offset_horizontal) - drawing.generator.mm_to_px(randint(0, 6))
+        strokes[:, 1] += drawing.generator.mm_to_px(paper.offset_vertical)
 
         prev_eos = 1.0
         p = "M{},{} ".format(0, 0)

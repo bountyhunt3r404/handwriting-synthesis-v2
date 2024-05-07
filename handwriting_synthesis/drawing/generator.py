@@ -50,6 +50,9 @@ def create_svg_with_ruled_lines(filename, size=(210, 297), offset_horizontal=0, 
     # Set the viewbox of the SVG drawing
     dwg.viewbox(width=mm_to_px(width, unit=unit), height=mm_to_px(height, unit=unit))
 
+    # Adding White Rectangle
+    dwg.add(dwg.rect(insert=(0, 0), size=(f"{width}{unit}", f"{height}{unit}"), fill='white'))
+
     # Define starting position
     x_start = mm_to_px(offset_horizontal, unit=unit)
     y_start = mm_to_px(offset_vertical, unit=unit)
