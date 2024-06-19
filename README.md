@@ -13,8 +13,8 @@ paper, with a few slight deviations, and the generated samples are of similar qu
 ## Installation
 
 ```shell
-git clone https://github.com/otuva/handwriting-synthesis
-cd handwriting-synthesis
+git clone https://github.com/bountyhunt3r404/handwriting-synthesis-v2.git
+cd handwriting-synthesis-v2
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -65,24 +65,8 @@ The code for these demonstrations can be found in `main.py`.
 
 The following samples were generated with a fixed style and fixed bias.
 
-**Smash Mouth – All Star (<a href="https://www.azlyrics.com/lyrics/smashmouth/allstar.html">lyrics</a>)**
-![](img/all_star.svg)
+![](img/a4-template-test-08.svg)
 
-### Demo #2
-
-The following samples were generated with varying style and fixed bias. Each verse is generated in a different style.
-
-**Vanessa Carlton – A Thousand Miles (<a href="https://www.azlyrics.com/lyrics/vanessacarlton/athousandmiles.html">
-lyrics</a>)**
-![](img/downtown.svg)
-
-### Demo #3
-
-The following samples were generated with a fixed style and varying bias. Each verse has a lower bias than the previous,
-with the last verse being unbiased.
-
-**Leonard Cohen – Hallelujah (<a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">lyrics</a>)**
-![](img/give_up.svg)
 
 ## Training
 
