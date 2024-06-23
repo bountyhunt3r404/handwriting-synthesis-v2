@@ -1,6 +1,6 @@
 import os
 
-BASE_PATH = "model"
+BASE_PATH = os.path.relpath(os.path.join(os.path.dirname( __file__ ), '..', 'model'))
 BASE_DATA_PATH = "data"
 
 data_path: str = os.path.join(BASE_PATH, BASE_DATA_PATH)
