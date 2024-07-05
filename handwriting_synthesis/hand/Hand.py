@@ -1,12 +1,14 @@
-import logging
 import os
+from random import randint
 
 import numpy as np
+import svgwrite
 
+import handwriting_synthesis.drawing.generator as generator
 from handwriting_synthesis import drawing
 from handwriting_synthesis.config import prediction_path, checkpoint_path, style_path
-from handwriting_synthesis.drawing.paper import Paper
-from handwriting_synthesis.hand._draw_enhanced import draw
+from handwriting_synthesis.drawing import offsets_to_coords, denoise, align
+from handwriting_synthesis.drawing.background import Background
 from handwriting_synthesis.rnn import RNN
 
 
@@ -30,7 +32,7 @@ class Hand(object):
             enable_parameter_averaging=False,
             min_steps_to_checkpoint=2000,
             log_interval=20,
-            logging_level=logging.CRITICAL,
+            # logging_level=logging.CRITICAL,
             grad_clip=10,
             lstm_size=400,
             output_mixture_components=20,
@@ -38,27 +40,38 @@ class Hand(object):
         )
         self.nn.restore()
 
-    def write(self, filename: str, paper: Paper, lines: list[str], biases=None, styles=None,
-              stroke_colors=None, stroke_widths=None, scale_factor=1.0):
+    def write(self, filename: str, lines: list[str], background: Background = None, biases=None, styles=None,
+              stroke_colors=None, stroke_widths=None, scale_factor: float = 1.0, alignment: str = "center"):
         """
-        Writes text to SVG file with customizable styles and biases.
+        Writes text to SVG file with customizable styles, biases, and alignment.
 
         Parameters:
             filename (str): The name of the file to write the text to.
-            paper (Paper): A Paper object specifying paper size and offsets.
             lines (List[str]): List of strings representing each line of text.
+            background (Background, optional): A Background object specifying background size and type (ruled/unruled). Default is None (uses A4 unruled).
             biases (List[float], optional): List of bias values for each line. Default is None.
             styles (List[str], optional): List of style names for each line. Default is None.
             stroke_colors (List[str], optional): List of stroke colors for each line. Default is None.
             stroke_widths (List[float], optional): List of stroke widths for each line. Default is None.
             scale_factor (float, optional): Scaling factor. Default is 1.0.
+            alignment (str, optional): Text alignment ('left', 'center', 'right'). Default is 'center'.
 
         Returns:
             None
 
         Raises:
             ValueError: If any of the lines exceed the maximum character length or contain invalid characters.
+            ValueError: If an invalid alignment value is provided.
         """
+        # Validate alignment
+        if alignment not in ['left', 'center', 'right']:
+            raise ValueError("Invalid alignment value. Allowed values are 'left', 'center', 'right'.")
+
+        # Validate and initialize background
+        if background is None:
+            background = Background()  # Default to A4 unruled background
+
+        # Validate lines
         valid_char_set = set(drawing.alphabet)
         for line_num, line in enumerate(lines):
             if len(line) > drawing.MAX_CHAR_LEN:
@@ -78,9 +91,12 @@ class Hand(object):
                         ).format(char, line_num, valid_char_set)
                     )
 
+        # Generate strokes based on biases and styles
         strokes = self._sample(lines, biases=biases, styles=styles)
-        draw(strokes, lines, filename, paper, scale_factor,
-             stroke_colors=stroke_colors, stroke_widths=stroke_widths)
+
+        # Draw strokes onto SVG file
+        self._draw(strokes, lines, filename, background, alignment, scale_factor,
+                   stroke_colors=stroke_colors, stroke_widths=stroke_widths)
 
     def _sample(self, lines, biases=None, styles=None):
         num_samples = len(lines)
@@ -127,3 +143,76 @@ class Hand(object):
         )
         samples = [sample[~np.all(sample == 0.0, axis=1)] for sample in samples]
         return samples
+
+    def _draw(self, strokes, lines: list[str], filename, background: Background, alignment: str, scale_factor: float=1.0, stroke_colors=None,
+              stroke_widths=None) -> None:
+        stroke_colors = stroke_colors or ['black'] * len(lines)
+        stroke_widths = stroke_widths or [2] * len(lines)
+
+        # Convert line height from millimeters to pixels
+        line_height = generator.mm_to_px(background.line_space)
+
+        # Convert view size from millimeters to pixels
+        view_width_px = generator.mm_to_px(background.get_size()[0])
+        view_height_px = generator.mm_to_px(background.get_size()[1])
+
+        # Create a new SVG drawing with background
+        dwg = generator.create_svg_with_lines(filename, background, save_file=False)
+
+        # Calculate initial position based on alignment
+        # if alignment == 'left':
+        #     initial_x = 0
+        # elif alignment == 'center':
+        #     initial_x = (view_width_px - background.width) / 2 + generator.mm_to_px(background.offset_horizontal)
+        # elif alignment == 'right':
+        #     initial_x = view_width_px - background.width + generator.mm_to_px(background.offset_horizontal)
+        # else:
+        #     raise ValueError(f"Invalid alignment value: {alignment}. Must be 'left', 'center', or 'right'.")
+
+        initial_x = 0
+        initial_y = - line_height / 4
+        padding = generator.mm_to_px(5)
+
+        # Iterate through strokes and lines
+        for offsets, line, color, width in zip(strokes, lines, stroke_colors, stroke_widths):
+            if not line:
+                initial_y -= line_height
+                continue
+
+            # Scaling the stroke coordinates
+            offsets[:, :2] *= scale_factor
+            strokes = offsets_to_coords(offsets)
+            strokes = denoise(strokes)
+            strokes[:, :2] = align(strokes[:, :2])
+
+            strokes[:, 1] *= -1
+            strokes[:, :2] -= strokes[:, :2].min(axis=0) + np.array([initial_x, initial_y])
+
+            if alignment == 'left':
+                strokes[:, 0] += (generator.mm_to_px(background.offset_horizontal) +
+                                  generator.mm_to_px(randint(0, 6)) +
+                                  padding)
+            elif alignment == 'right':
+                # Adjust the x-coordinate to align to the right
+                strokes[:, 0] += view_width_px - strokes[:, 0].max() - padding
+            else:  # Center alignment handled in previous block
+                strokes[:, 0] += (view_width_px - strokes[:, 0].max()) / 2
+
+            strokes[:, 1] += generator.mm_to_px(background.offset_vertical)
+
+            # Convert strokes into SVG path string
+            prev_eos = 1.0
+            path_str = "M{},{} ".format(0, 0)
+            for x, y, eos in zip(*strokes.T):
+                path_str += '{}{},{} '.format('M' if prev_eos == 1.0 else 'L', x, y)
+                prev_eos = eos
+
+            # Create SVG path element for the strokes
+            path = svgwrite.path.Path(path_str)
+            path = path.stroke(color=color, width=width, linecap='round').fill("none")
+            dwg.add(path)
+
+            initial_y -= line_height
+
+        # Save the SVG drawing to a file
+        dwg.save()
