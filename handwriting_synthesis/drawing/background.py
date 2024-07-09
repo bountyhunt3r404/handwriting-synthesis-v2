@@ -13,22 +13,34 @@ class Background:
     }
 
     def __init__(self, size="A4", ruled=False):
-        self.size: tuple[int, int] = self.STANDARD_SIZES[size]
-        self.set_size(size)
-        self.horizontal_ruled_lines: int = 32 if ruled else 0
-        self.vertical_ruled_lines: int = 1 if ruled else 0
+        if isinstance(size, str):
+            self.size = self.STANDARD_SIZES[size]
+        elif isinstance(size, tuple) and len(size) == 2:
+            self.size = (size[0], size[1])
+        else:
+            raise ValueError("Invalid size format. Use a string from STANDARD_SIZES or a tuple (width, height).")
+
+        self.horizontal_ruled_lines = 32 if ruled else 0
+        self.vertical_ruled_lines = 1 if ruled else 0
         self.offset_horizontal = 34
         self.offset_vertical = 33
         self.line_space = 8
 
-    def set_size(self, size_name) -> None:
-        if size_name not in self.STANDARD_SIZES:
-            raise ValueError("Invalid paper size")
-        self.size = self.STANDARD_SIZES[size_name]
-        self.width, self.height = self.STANDARD_SIZES[size_name]
+    def set_size(self, size_specification) -> None:
+        if isinstance(size_specification, str):
+            if size_specification not in self.STANDARD_SIZES:
+                raise ValueError("Invalid paper size")
+            self.size = self.STANDARD_SIZES[size_specification]
+        elif isinstance(size_specification, tuple) and len(size_specification) == 2:
+            width, height = size_specification
+            if width <= 0 or height <= 0:
+                raise ValueError("Width and height must be positive integers")
+            self.size = (width, height)
+        else:
+            raise ValueError("Invalid size format. Use a string from STANDARD_SIZES or a tuple (width, height).")
 
     def get_size(self) -> tuple[int, int]:
-        return self.width, self.height
+        return self.size
 
     def set_offsets(self, offset_horizontal, offset_vertical) -> None:
         if not isinstance(offset_horizontal, int) or not isinstance(offset_vertical, int):
