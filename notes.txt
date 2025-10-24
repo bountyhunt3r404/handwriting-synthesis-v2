@@ -1,0 +1,39 @@
+1) ek chotta sa sensor type bhi lgega
+jo ki paper pe lines kaha draw hai vo sab detect kar sake
+kyuki saare assignment pages exactly same nahi rehte, kuch ke lines upar neeche hote, kuch ke margins left right
+so we can't take a default or it wont work
+
+First scan every page to get its correct ruled page image and use it to call the function /drawing/generator.py -> create_svg_with_ruled_lines()
+with appropriate parameters. Maybe modify the function to be able to take coord of each line as well, instead of generic distance 
+between each line is 'x', etc. because maybe the line distance changes across the page.
+
+Paper dimensions and margins (top, left) are defined in /drawing/paper.py, so see where it is initialised and use the sensor data 
+to initialise that class properly too. It is initialised in /hand/_draw_enhanced.py
+
+Scope limitation: Currently we will only handle PICT official assignment pages and not any other kind of ruled pages.
+
+
+
+2) convert the drawing mechanism from line as a unit to a word as a unit. instead of passing lines to the drawing,
+pass words and each word would be rendered if the heuristic function thinks the word can fit on the line.
+
+Ideas for randomisation: 
+a) Create a heuristic function to get needed space for word. If the needed space is withing some range of the
+actual available space, then you can 'squeeze' the word x% of the time, where x would be decided on random depending on other factors like bias
+b) The spacing between words would be random to a small extent (again influenced by bias value)
+
+
+
+3) Solution for the degrading of handwriting within a token
+
+The main problem is not just that the moel "forgets" how to draw the strokes, the problem is also the gradual drifting of 
+start points which accumulates over time. This is because each character starts from where the previous character ended.
+
+This is a more complex version of Solution 1. You could generate "the the the" and save its strokes. Then, you could 
+prime the next generation with those strokes to generate the next "the the the". This is much more complex as it requires 
+you to manually manage the stroke data, but it's a way to "remind" the model what good handwriting looks like part-way through.
+
+We should infact store the data generated for all the tokens for this very purpose -- in future they could provide a huge 
+dataset to prime our words. This data can be stored in from of word - style pair and can be then fetched whenever that word
+has to be drawn in that style, to prime the word appropriately. Note that idk how necessary this is because the existing priming
+method is already pretty good.
