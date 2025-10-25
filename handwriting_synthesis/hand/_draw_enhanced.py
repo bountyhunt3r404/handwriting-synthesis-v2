@@ -53,7 +53,8 @@ def draw(strokes, words, filename, paper: Paper,
     stroke_widths = stroke_widths or [2] * len(words)
 
     line_height = drawing.generator.mm_to_px(paper.line_space)
-    view_width, view_height = paper.get_size()  # Extracting width and height from the paper size tuple
+    view_width, view_height = map(drawing.generator.mm_to_px, paper.get_size())  # Extracting width and height from the paper size tuple
+    print("View width and height: ", view_width, view_height)
 
     # Create a new SVG drawing
     dwg = drawing.generator.create_svg_with_ruled_lines(filename,
@@ -66,10 +67,10 @@ def draw(strokes, words, filename, paper: Paper,
     # Initial position for drawing strokes
     initial_coord = np.array([0, -line_height / 4])
 
-    print("strokes: ", strokes)
+    # print("strokes: ", strokes)
     for offsets, word, color, width in zip(strokes, words, stroke_colors, stroke_widths):
 
-        print("offset: ", offsets)
+        # print("offset: ", offsets)
         if not word:
             # initial_coord[1] -= line_height # effectively moves one line down
             continue
@@ -80,12 +81,27 @@ def draw(strokes, words, filename, paper: Paper,
         strokes = drawing.denoise(strokes)
         strokes[:, :2] = drawing.align(strokes[:, :2])
 
+        # calculating horizontally drawn length
+        pen_down_mask = strokes[:, 2] == 0.0  # eos == 0.0 means pen is down
+        if pen_down_mask.any():
+            pen_down_x = strokes[pen_down_mask, 0]
+            min_x = pen_down_x.min()
+            max_x = pen_down_x.max()
+            word_width = max_x - min_x
+            print(f"Word '{word}': min_x={min_x:.2f}, max_x={max_x:.2f}, width={word_width:.2f}")
+            if view_width < (abs(initial_coord[0]) + abs(word_width) + drawing.generator.mm_to_px(paper.offset_horizontal)):
+                initial_coord[0] = 0
+                initial_coord[1] -= line_height
+                print("reset initial coord to: ", initial_coord)
+        else:
+            print(f"Word '{word}': No pen-down strokes")
+
         strokes[:, 1] *= -1
         print("here intial coord: ", initial_coord)
         strokes[:, :2] -= strokes[:, :2].min()
-        strokes[:, :2] += initial_coord
+        strokes[:, :2] -= initial_coord
         # strokes[:, 0] += (view_width - strokes[:, 0].max()) / 2
-        strokes[:, 0] += drawing.generator.mm_to_px(paper.offset_horizontal) - drawing.generator.mm_to_px(randint(0, 6))
+        strokes[:, 0] += drawing.generator.mm_to_px(paper.offset_horizontal) #- drawing.generator.mm_to_px(randint(0, 6)) REMOVED FOR TESTING PURPOSES
         strokes[:, 1] += drawing.generator.mm_to_px(paper.offset_vertical)
 
         prev_eos = 1.0
@@ -99,7 +115,7 @@ def draw(strokes, words, filename, paper: Paper,
         path = path.stroke(color=color, width=width, linecap='round').fill("none")
         dwg.add(path)
 
-        initial_coord[0] += 7  # spacing between words
+        initial_coord[0] -= 47.5  # spacing between words
         # initial_coord[1] -= line_height # now we work at word level, so not needed
 
     # Save the SVG drawing to a file
